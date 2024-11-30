@@ -2,6 +2,7 @@ from loguru import logger
 from openai import OpenAI
 import os
 import random
+from render import ImageScreensaver
 import requests
 
 PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
@@ -154,7 +155,10 @@ def main():
     logger.info("OpenAI API key successfully read.")
     quote = get_inspirational_quote(perplexity_api_key)
 
-    generate_image(openai_api_key, quote)
+    image_urls = generate_image(openai_api_key, quote)
+
+    screensaver = ImageScreensaver(image_urls)
+    screensaver.run()
 
 
 if __name__ == "__main__":
