@@ -1,11 +1,14 @@
+import json
 from loguru import logger
 from openai import OpenAI
 import os
+from pushbullet import Pushbullet
 import random
 from render import ImageScreensaver
 import requests
 
 PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
+PUSHBULLET_API_URL = "https://api.pushbullet.com/v2/pushes"
 
 
 def read_api_key(file_path):
@@ -134,6 +137,33 @@ def generate_image(openai_api_key, quote):
         return None
 
 
+def send_notification(api_key, quote, image_urls):
+    # Replace with your API key
+    pb = Pushbullet(api_key)
+
+    # Send a rich notification
+    push = pb.push_note("Notification Title", quote)
+    image_url = image_urls[0] if image_urls else ""
+
+    # To include an image
+    push = pb.push_file(
+        file_url=image_url,
+        file_name="quote.jpg",
+        file_type="image/jpeg",
+    )
+
+    headers = {"Access-Token": api_key, "Content-Type": "application/json"}
+
+    data = {"type": "note", "title": quote, "image_url": image_url}
+
+    response = requests.post(PUSHBULLET_API_URL, headers=headers, data=json.dumps(data))
+
+    if response.status_code == 200:
+        logger.info("Notification sent successfully")
+    else:
+        logger.error("Failed to send notification")
+
+
 def main():
     # Read perplexity API key
     perplexity_api_key_file = "secrets/perplexity_api_key"
@@ -143,19 +173,28 @@ def main():
     openai_api_key_file = "secrets/openai_api_key"
     openai_api_key = read_api_key(openai_api_key_file)
 
+    # Read pushbullet API key
+    pushbullet_api_key_file = "secrets/pushbullet_api_key"
+    pushbullet_api_key = read_api_key(pushbullet_api_key_file)
+
     if not perplexity_api_key:
         logger.error("Failed to read Perplexity API key.")
         os.exit(1)
 
     if not openai_api_key:
-        logger.error("Failed to read Perplexity API key.")
+        logger.error("Failed to read OpenAI API key.")
         os.exit(1)
+
+    if not pushbullet_api_key:
+        logger.error("Failed to read Pushbullet API key.")
 
     logger.info("Perplexity API key successfully read.")
     logger.info("OpenAI API key successfully read.")
     quote = get_inspirational_quote(perplexity_api_key)
 
     image_urls = generate_image(openai_api_key, quote)
+
+    send_notification(pushbullet_api_key, quote, image_urls)
 
     screensaver = ImageScreensaver(image_urls)
     screensaver.run()
